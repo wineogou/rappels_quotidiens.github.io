@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistant Tâches</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
+        .container { text-align: center; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 80%; }
+        button { background-color: #007bff; color: white; border: none; padding: 20px 40px; font-size: 20px; border-radius: 50px; cursor: pointer; width: 100%; margin-top: 20px; }
+        button:active { background-color: #0056b3; transform: scale(0.98); }
+        h2 { color: #333; }
+        #status { margin-top: 20px; color: #666; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Bonjour Monsieur X</h2>
+    <p>Prêt pour le briefing ?</p>
+    <button onclick="lireTaches()">🔊 Écouter mes tâches</button>
+    <div id="status"></div>
+</div>
+
+<script>
+    // COLLEZ VOTRE URL GOOGLE APPS SCRIPT ICI (celle qui finit par /exec)
+    const API_URL = "https://script.google.com/macros/s/AKfycbywj5xDRRDIdjK7rXFn7iz90o5MXImzwEIpjXxu2J4bQFNXqoVAgHpFxJjw2Int4sn-/exec"; 
+
+    async function lireTaches() {
+        const statusDiv = document.getElementById('status');
+        statusDiv.innerText = "Récupération des tâches...";
+        
+        try {
+            const response = await fetch(API_URL);
+            const data = await response.json();
+            
+            let texteALire = data.intro;
+            
+            if (data.taches.length === 0) {
+                texteALire += " Vous n'avez aucune tâche prévue pour aujourd'hui. Profitez-en !";
+            } else {
+                data.taches.forEach((tache, index) => {
+                    texteALire += " Tâche numéro " + (index + 1) + " : " + tache + ". ";
+                });
+                texteALire += " Fin de la liste. Bonne journée !";
+            }
+
+            statusDiv.innerText = "Lecture en cours...";
+            parler(texteALire);
+
+        } catch (error) {
+            statusDiv.innerText = "Erreur de connexion.";
+            alert("Impossible de récupérer les tâches.");
+        }
+    }
+
+    function parler(texte) {
+        // Annule toute lecture en cours
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(texte);
+        utterance.lang = 'fr-FR'; // Voix française
+        utterance.rate = 1; // Vitesse normale
+        utterance.pitch = 1;
+        
+        // Sur mobile, il faut parfois forcer le chargement des voix
+        window.speechSynthesis.speak(utterance);
+        
+        utterance.onend = function() {
+            document.getElementById('status').innerText = "Lecture terminée.";
+        };
+    }
+</script>
+
+</body>
+</html>
