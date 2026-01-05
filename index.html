@@ -9,7 +9,7 @@
         .container { text-align: center; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 90%; max-width: 500px; }
         
         h2 { color: #333; margin-bottom: 10px; }
-        p { color: #666; margin-bottom: 30px; }
+        p { color: #666; margin-bottom: 30px; font-weight: bold; }
         
         /* Styles des boutons */
         .btn-group {
@@ -51,11 +51,12 @@
 
 <div class="container">
     <h2>Bonjour Monsieur Said</h2>
-    <p>Prêt pour le briefing ?</p>
+    <!-- MODIFICATION ICI POUR VÉRIFIER LA MISE A JOUR -->
+    <p>Version 2</p>
     
     <div class="btn-group">
         <!-- Bouton Principal -->
-        <button class="btn-start" onclick="lireTaches()">🔊 Écouter mes tâches (Début)</button>
+        <button class="btn-start" onclick="lireTaches()">🔊 Écouter mes tâches</button>
         
         <!-- Boutons de contrôle -->
         <div class="controls">
@@ -69,18 +70,24 @@
 </div>
 
 <script>
-    // ⚠️ COLLEZ VOTRE NOUVELLE URL ICI ⚠️
-    const API_URL = "https://script.google.com/macros/s/AKfycbxagbNgMLIaqevvKohiQzqlug7xHcMvkQ8esI2e22admyCldGsgM4XHNTHKzL5-KFKfXw/exec"; 
+    // ⚠️⚠️ COLLEZ VOTRE URL GOOGLE APPS SCRIPT ICI ⚠️⚠️
+    const API_URL = "https://script.google.com/macros/s/AKfycbywj5xDRRDIdjK7rXFn7iz90o5MXImzwEIpjXxu2J4bQFNXqoVAgHpFxJjw2Int4sn-/exec"; 
 
-    // Variable pour stocker l'objet qui parle
-    let synthese = window.speechSynthesis;
+    // Initialisation du moteur de synthèse
+    const synthese = window.speechSynthesis;
     let phraseEnCours = null;
 
     async function lireTaches() {
         const statusDiv = document.getElementById('status');
         
-        // On arrête tout avant de commencer une nouvelle lecture
+        // --- 1. ASTUCE CRUCIALE POUR IPHONE ---
+        // On arrête tout son en cours
         stopLecture();
+        // On force l'iPhone à activer l'audio immédiatement avec un son vide
+        // C'est nécessaire car l'iPhone bloque le son s'il arrive après le délai du chargement (fetch)
+        const unlock = new SpeechSynthesisUtterance('');
+        synthese.speak(unlock);
+        // -------------------------------------
 
         statusDiv.innerText = "Récupération des tâches...";
         
@@ -94,7 +101,8 @@
                 texteALire += " Vous n'avez aucune tâche en attente pour aujourd'hui. Profitez-en !";
             } else {
                 data.taches.forEach((tache, index) => {
-                    texteALire += " Tâche numéro " + (index + 1) + " : " + tache + ". ";
+                    // Ajout d'une virgule pour une pause naturelle
+                    texteALire += " Tâche numéro " + (index + 1) + " : " + tache + ", ";
                 });
                 texteALire += " Fin de la liste. Bonne journée !";
             }
@@ -104,29 +112,32 @@
 
         } catch (error) {
             console.error(error);
-            statusDiv.innerText = "Erreur de connexion (Vérifiez l'URL).";
+            statusDiv.innerText = "Erreur de connexion (URL?).";
         }
     }
 
     function parler(texte) {
-        // Création de l'objet parole
+        // Annulation de sécurité
+        synthese.cancel();
+
         phraseEnCours = new SpeechSynthesisUtterance(texte);
         phraseEnCours.lang = 'fr-FR'; 
         phraseEnCours.rate = 1; 
         phraseEnCours.pitch = 1;
         
-        // Événement quand la lecture est finie
         phraseEnCours.onend = function() {
             document.getElementById('status').innerText = "Lecture terminée.";
         };
 
-        // Lancer la lecture
+        phraseEnCours.onerror = function(e) {
+            console.error("Erreur audio:", e);
+        };
+
         synthese.speak(phraseEnCours);
     }
 
-    // --- NOUVELLES FONCTIONS ---
-
     function pauseLecture() {
+        // Vérifie si ça parle pour mettre en pause
         if (synthese.speaking && !synthese.paused) {
             synthese.pause();
             document.getElementById('status').innerText = "Lecture en pause...";
@@ -134,6 +145,7 @@
     }
 
     function reprendreLecture() {
+        // Vérifie si c'est en pause pour reprendre
         if (synthese.paused) {
             synthese.resume();
             document.getElementById('status').innerText = "Lecture en cours...";
@@ -141,14 +153,11 @@
     }
 
     function stopLecture() {
-        if (synthese.speaking || synthese.paused) {
-            synthese.cancel();
-            document.getElementById('status').innerText = "Lecture arrêtée.";
-        }
+        // Arrête tout brutalement
+        synthese.cancel();
+        document.getElementById('status').innerText = "Lecture arrêtée.";
     }
 </script>
 
 </body>
 </html>
-
-
