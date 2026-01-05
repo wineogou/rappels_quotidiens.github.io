@@ -5,12 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assistant Tâches Said</title>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; }
         .container { text-align: center; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 90%; max-width: 500px; }
         
-        h2 { color: #333; margin-bottom: 10px; }
-        p { color: #666; margin-bottom: 30px; font-weight: bold; }
+        h2 { color: #333; margin-bottom: 5px; }
+        p { color: #666; margin-bottom: 20px; font-weight: bold; font-size: 14px; }
         
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+            background-color: #f9f9f9;
+        }
+
         .btn-group {
             display: flex;
             flex-direction: column;
@@ -49,9 +59,14 @@
 
 <div class="container">
     <h2>Bonjour Monsieur Said</h2>
-    <!-- VERSION 3 POUR VÉRIFIER LA MISE À JOUR -->
-    <p>Version 3 (Force Voix FR)</p>
+    <p>Version 4 (Choix de la voix)</p>
     
+    <!-- MENU POUR CHOISIR LA VOIX -->
+    <label for="choixVoix" style="display:block; text-align:left; margin-bottom:5px; color:#555;">Choisissez la voix :</label>
+    <select id="choixVoix">
+        <option value="">Chargement des voix...</option>
+    </select>
+
     <div class="btn-group">
         <button class="btn-start" onclick="lireTaches()">🔊 Écouter mes tâches</button>
         
@@ -72,20 +87,48 @@
     const synthese = window.speechSynthesis;
     let phraseEnCours = null;
     let voixDisponibles = [];
+    const selectVoix = document.getElementById('choixVoix');
 
-    // --- CHARGEMENT DES VOIX (IMPORTANT POUR FORCER LE FRANÇAIS) ---
-    function chargerVoix() {
+    // --- 1. CHARGEMENT ET AFFICHAGE DES VOIX ---
+    function chargerEtAfficherVoix() {
         voixDisponibles = synthese.getVoices();
+        
+        // On vide le menu
+        selectVoix.innerHTML = '';
+
+        // On ne garde que les voix qui ont "fr" dans la langue
+        const voixFr = voixDisponibles.filter(voice => voice.lang.includes('fr') || voice.lang.includes('FR'));
+
+        if (voixFr.length === 0) {
+            let option = document.createElement('option');
+            option.text = "Aucune voix française trouvée";
+            selectVoix.add(option);
+            return;
+        }
+
+        // On ajoute chaque voix au menu
+        voixFr.forEach((voice, index) => {
+            let option = document.createElement('option');
+            option.value = index; // On stocke l'index pour retrouver la voix plus tard
+            // On affiche le nom de la voix (ex: Thomas, Google Français...)
+            option.text = voice.name + ' (' + voice.lang + ')';
+            selectVoix.add(option);
+
+            // AUTO-SELECTION : On essaie de sélectionner fr-FR par défaut (et éviter Canada)
+            if (voice.lang === 'fr-FR' && !voice.name.includes('Canada')) {
+                selectVoix.selectedIndex = index;
+            }
+        });
     }
-    
-    // Sur certains navigateurs, les voix ne sont pas prêtes tout de suite
+
+    // Chargement des voix (certains navigateurs sont lents à les donner)
+    chargerEtAfficherVoix();
     if (speechSynthesis.onvoiceschanged !== undefined) {
-        speechSynthesis.onvoiceschanged = chargerVoix;
+        speechSynthesis.onvoiceschanged = chargerEtAfficherVoix;
     }
 
     async function lireTaches() {
         const statusDiv = document.getElementById('status');
-        
         stopLecture();
         
         // Astuce iPhone
@@ -123,22 +166,19 @@
 
         phraseEnCours = new SpeechSynthesisUtterance(texte);
         
-        // --- LOGIQUE POUR FORCER LA VOIX FRANÇAISE ---
-        // On s'assure d'avoir la liste des voix
-        if (voixDisponibles.length === 0) chargerVoix();
-
-        // On cherche une voix qui contient "fr" ou "FR" dans sa langue
-        // On préfère "Google français" sur Android si dispo
-        const voixFR = voixDisponibles.find(voice => voice.lang.includes('fr') || voice.lang.includes('FR'));
+        // --- 2. APPLIQUER LA VOIX CHOISIE DANS LE MENU ---
+        const selectedOption = selectVoix.selectedOptions[0];
+        // On retrouve la vraie voix dans la liste filtrée grâce au nom
+        const nomChoisi = selectedOption.text;
         
-        if (voixFR) {
-            phraseEnCours.voice = voixFR; // On force cette voix spécifique
-            phraseEnCours.lang = voixFR.lang;
-        } else {
-            // Sécurité si aucune voix n'est trouvée
-            phraseEnCours.lang = 'fr-FR'; 
+        // On cherche l'objet voix correspondant dans la liste complète
+        const voixChoisie = voixDisponibles.find(v => (v.name + ' (' + v.lang + ')') === nomChoisi);
+
+        if (voixChoisie) {
+            phraseEnCours.voice = voixChoisie;
+            phraseEnCours.lang = voixChoisie.lang;
         }
-        // ---------------------------------------------
+        // ------------------------------------------------
 
         phraseEnCours.rate = 1; 
         phraseEnCours.pitch = 1;
