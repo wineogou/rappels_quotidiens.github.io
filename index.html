@@ -2,8 +2,13 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Assistant Tâches Said</title>
+    
+    <!-- OPTIONNEL : Si vous avez mis une image icon.png -->
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" href="icon.png" type="image/png">
+
     <style>
         body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; }
         .container { text-align: center; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 90%; max-width: 500px; }
@@ -13,7 +18,7 @@
         
         select {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             margin-bottom: 20px;
             border-radius: 10px;
             border: 1px solid #ccc;
@@ -59,7 +64,7 @@
 
 <div class="container">
     <h2>Bonjour Monsieur Said</h2>
-    <p>Version 4 (Choix de la voix)</p>
+    <p>Version 4 (Choix de la voix + Nouveau Lien)</p>
     
     <!-- MENU POUR CHOISIR LA VOIX -->
     <label for="choixVoix" style="display:block; text-align:left; margin-bottom:5px; color:#555;">Choisissez la voix :</label>
@@ -81,8 +86,8 @@
 </div>
 
 <script>
-    // ⚠️⚠️ COLLEZ VOTRE URL GOOGLE APPS SCRIPT ICI ⚠️⚠️
-    const API_URL = "https://script.google.com/macros/s/AKfycbywj5xDRRDIdjK7rXFn7iz90o5MXImzwEIpjXxu2J4bQFNXqoVAgHpFxJjw2Int4sn-/exec"; 
+    // ✅ URL MISE À JOUR ✅
+    const API_URL = "https://script.google.com/macros/s/AKfycbxagbNgMLIaqevvKohiQzqlug7xHcMvkQ8esI2e22admyCldGsgM4XHNTHKzL5-KFKfXw/exec"; 
 
     const synthese = window.speechSynthesis;
     let phraseEnCours = null;
@@ -109,13 +114,14 @@
         // On ajoute chaque voix au menu
         voixFr.forEach((voice, index) => {
             let option = document.createElement('option');
-            option.value = index; // On stocke l'index pour retrouver la voix plus tard
-            // On affiche le nom de la voix (ex: Thomas, Google Français...)
+            // On utilise le nom de la voix comme valeur pour être sûr de la retrouver
+            option.value = voice.name; 
             option.text = voice.name + ' (' + voice.lang + ')';
             selectVoix.add(option);
 
             // AUTO-SELECTION : On essaie de sélectionner fr-FR par défaut (et éviter Canada)
-            if (voice.lang === 'fr-FR' && !voice.name.includes('Canada')) {
+            // Priorité : Thomas (iPhone) ou Google FR (Android)
+            if (voice.name.includes('Thomas') || (voice.lang === 'fr-FR' && !voice.name.includes('Canada'))) {
                 selectVoix.selectedIndex = index;
             }
         });
@@ -131,7 +137,7 @@
         const statusDiv = document.getElementById('status');
         stopLecture();
         
-        // Astuce iPhone
+        // Astuce iPhone : déblocage audio
         const unlock = new SpeechSynthesisUtterance('');
         synthese.speak(unlock);
 
@@ -167,16 +173,13 @@
         phraseEnCours = new SpeechSynthesisUtterance(texte);
         
         // --- 2. APPLIQUER LA VOIX CHOISIE DANS LE MENU ---
-        const selectedOption = selectVoix.selectedOptions[0];
-        // On retrouve la vraie voix dans la liste filtrée grâce au nom
-        const nomChoisi = selectedOption.text;
-        
-        // On cherche l'objet voix correspondant dans la liste complète
-        const voixChoisie = voixDisponibles.find(v => (v.name + ' (' + v.lang + ')') === nomChoisi);
-
-        if (voixChoisie) {
-            phraseEnCours.voice = voixChoisie;
-            phraseEnCours.lang = voixChoisie.lang;
+        const nomChoisi = selectVoix.value;
+        if (nomChoisi) {
+             const voixChoisie = voixDisponibles.find(v => v.name === nomChoisi);
+             if (voixChoisie) {
+                phraseEnCours.voice = voixChoisie;
+                phraseEnCours.lang = voixChoisie.lang;
+             }
         }
         // ------------------------------------------------
 
