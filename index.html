@@ -3,31 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistant Tâches</title>
+    <title>Assistant Tâches Said</title>
     <style>
         body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
-        .container { text-align: center; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 80%; }
-        button { background-color: #007bff; color: white; border: none; padding: 20px 40px; font-size: 20px; border-radius: 50px; cursor: pointer; width: 100%; margin-top: 20px; }
-        button:active { background-color: #0056b3; transform: scale(0.98); }
-        h2 { color: #333; }
-        #status { margin-top: 20px; color: #666; font-style: italic; }
+        .container { text-align: center; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 90%; max-width: 500px; }
+        
+        h2 { color: #333; margin-bottom: 10px; }
+        p { color: #666; margin-bottom: 30px; }
+        
+        /* Styles des boutons */
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        button { 
+            color: white; 
+            border: none; 
+            padding: 15px 30px; 
+            font-size: 18px; 
+            border-radius: 50px; 
+            cursor: pointer; 
+            width: 100%; 
+            transition: transform 0.1s;
+            font-weight: bold;
+        }
+
+        button:active { transform: scale(0.98); }
+
+        /* Couleurs spécifiques */
+        .btn-start { background-color: #007bff; } /* Bleu */
+        .btn-pause { background-color: #ffc107; color: #333; } /* Jaune */
+        .btn-resume { background-color: #28a745; } /* Vert */
+        .btn-stop { background-color: #dc3545; } /* Rouge */
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        #status { margin-top: 25px; color: #666; font-style: italic; min-height: 20px;}
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Bonjour Monsieur X</h2>
+    <h2>Bonjour Monsieur Said</h2>
     <p>Prêt pour le briefing ?</p>
-    <button onclick="lireTaches()">🔊 Écouter mes tâches</button>
-    <div id="status"></div>
+    
+    <div class="btn-group">
+        <!-- Bouton Principal -->
+        <button class="btn-start" onclick="lireTaches()">🔊 Écouter mes tâches (Début)</button>
+        
+        <!-- Boutons de contrôle -->
+        <div class="controls">
+            <button class="btn-pause" onclick="pauseLecture()">⏸ Pause</button>
+            <button class="btn-resume" onclick="reprendreLecture()">▶ Reprendre</button>
+            <button class="btn-stop" onclick="stopLecture()">⏹ Stop</button>
+        </div>
+    </div>
+
+    <div id="status">En attente...</div>
 </div>
 
 <script>
-    // COLLEZ VOTRE URL GOOGLE APPS SCRIPT ICI (celle qui finit par /exec)
+    // ⚠️ COLLEZ VOTRE NOUVELLE URL ICI ⚠️
     const API_URL = "https://script.google.com/macros/s/AKfycbywj5xDRRDIdjK7rXFn7iz90o5MXImzwEIpjXxu2J4bQFNXqoVAgHpFxJjw2Int4sn-/exec"; 
+
+    // Variable pour stocker l'objet qui parle
+    let synthese = window.speechSynthesis;
+    let phraseEnCours = null;
 
     async function lireTaches() {
         const statusDiv = document.getElementById('status');
+        
+        // On arrête tout avant de commencer une nouvelle lecture
+        stopLecture();
+
         statusDiv.innerText = "Récupération des tâches...";
         
         try {
@@ -37,7 +91,7 @@
             let texteALire = data.intro;
             
             if (data.taches.length === 0) {
-                texteALire += " Vous n'avez aucune tâche prévue pour aujourd'hui. Profitez-en !";
+                texteALire += " Vous n'avez aucune tâche en attente pour aujourd'hui. Profitez-en !";
             } else {
                 data.taches.forEach((tache, index) => {
                     texteALire += " Tâche numéro " + (index + 1) + " : " + tache + ". ";
@@ -49,26 +103,48 @@
             parler(texteALire);
 
         } catch (error) {
-            statusDiv.innerText = "Erreur de connexion.";
-            alert("Impossible de récupérer les tâches.");
+            console.error(error);
+            statusDiv.innerText = "Erreur de connexion (Vérifiez l'URL).";
         }
     }
 
     function parler(texte) {
-        // Annule toute lecture en cours
-        window.speechSynthesis.cancel();
+        // Création de l'objet parole
+        phraseEnCours = new SpeechSynthesisUtterance(texte);
+        phraseEnCours.lang = 'fr-FR'; 
+        phraseEnCours.rate = 1; 
+        phraseEnCours.pitch = 1;
         
-        const utterance = new SpeechSynthesisUtterance(texte);
-        utterance.lang = 'fr-FR'; // Voix française
-        utterance.rate = 1; // Vitesse normale
-        utterance.pitch = 1;
-        
-        // Sur mobile, il faut parfois forcer le chargement des voix
-        window.speechSynthesis.speak(utterance);
-        
-        utterance.onend = function() {
+        // Événement quand la lecture est finie
+        phraseEnCours.onend = function() {
             document.getElementById('status').innerText = "Lecture terminée.";
         };
+
+        // Lancer la lecture
+        synthese.speak(phraseEnCours);
+    }
+
+    // --- NOUVELLES FONCTIONS ---
+
+    function pauseLecture() {
+        if (synthese.speaking && !synthese.paused) {
+            synthese.pause();
+            document.getElementById('status').innerText = "Lecture en pause...";
+        }
+    }
+
+    function reprendreLecture() {
+        if (synthese.paused) {
+            synthese.resume();
+            document.getElementById('status').innerText = "Lecture en cours...";
+        }
+    }
+
+    function stopLecture() {
+        if (synthese.speaking || synthese.paused) {
+            synthese.cancel();
+            document.getElementById('status').innerText = "Lecture arrêtée.";
+        }
     }
 </script>
 
