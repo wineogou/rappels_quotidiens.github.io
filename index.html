@@ -11,7 +11,6 @@
         h2 { color: #333; margin-bottom: 10px; }
         p { color: #666; margin-bottom: 30px; font-weight: bold; }
         
-        /* Styles des boutons */
         .btn-group {
             display: flex;
             flex-direction: column;
@@ -32,11 +31,10 @@
 
         button:active { transform: scale(0.98); }
 
-        /* Couleurs spécifiques */
-        .btn-start { background-color: #007bff; } /* Bleu */
-        .btn-pause { background-color: #ffc107; color: #333; } /* Jaune */
-        .btn-resume { background-color: #28a745; } /* Vert */
-        .btn-stop { background-color: #dc3545; } /* Rouge */
+        .btn-start { background-color: #007bff; }
+        .btn-pause { background-color: #ffc107; color: #333; }
+        .btn-resume { background-color: #28a745; }
+        .btn-stop { background-color: #dc3545; }
 
         .controls {
             display: flex;
@@ -51,14 +49,12 @@
 
 <div class="container">
     <h2>Bonjour Monsieur Said</h2>
-    <!-- MODIFICATION ICI POUR VÉRIFIER LA MISE A JOUR -->
-    <p>Version 2</p>
+    <!-- VERSION 3 POUR VÉRIFIER LA MISE À JOUR -->
+    <p>Version 3 (Force Voix FR)</p>
     
     <div class="btn-group">
-        <!-- Bouton Principal -->
         <button class="btn-start" onclick="lireTaches()">🔊 Écouter mes tâches</button>
         
-        <!-- Boutons de contrôle -->
         <div class="controls">
             <button class="btn-pause" onclick="pauseLecture()">⏸ Pause</button>
             <button class="btn-resume" onclick="reprendreLecture()">▶ Reprendre</button>
@@ -73,21 +69,28 @@
     // ⚠️⚠️ COLLEZ VOTRE URL GOOGLE APPS SCRIPT ICI ⚠️⚠️
     const API_URL = "https://script.google.com/macros/s/AKfycbywj5xDRRDIdjK7rXFn7iz90o5MXImzwEIpjXxu2J4bQFNXqoVAgHpFxJjw2Int4sn-/exec"; 
 
-    // Initialisation du moteur de synthèse
     const synthese = window.speechSynthesis;
     let phraseEnCours = null;
+    let voixDisponibles = [];
+
+    // --- CHARGEMENT DES VOIX (IMPORTANT POUR FORCER LE FRANÇAIS) ---
+    function chargerVoix() {
+        voixDisponibles = synthese.getVoices();
+    }
+    
+    // Sur certains navigateurs, les voix ne sont pas prêtes tout de suite
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = chargerVoix;
+    }
 
     async function lireTaches() {
         const statusDiv = document.getElementById('status');
         
-        // --- 1. ASTUCE CRUCIALE POUR IPHONE ---
-        // On arrête tout son en cours
         stopLecture();
-        // On force l'iPhone à activer l'audio immédiatement avec un son vide
-        // C'est nécessaire car l'iPhone bloque le son s'il arrive après le délai du chargement (fetch)
+        
+        // Astuce iPhone
         const unlock = new SpeechSynthesisUtterance('');
         synthese.speak(unlock);
-        // -------------------------------------
 
         statusDiv.innerText = "Récupération des tâches...";
         
@@ -101,7 +104,6 @@
                 texteALire += " Vous n'avez aucune tâche en attente pour aujourd'hui. Profitez-en !";
             } else {
                 data.taches.forEach((tache, index) => {
-                    // Ajout d'une virgule pour une pause naturelle
                     texteALire += " Tâche numéro " + (index + 1) + " : " + tache + ", ";
                 });
                 texteALire += " Fin de la liste. Bonne journée !";
@@ -112,16 +114,32 @@
 
         } catch (error) {
             console.error(error);
-            statusDiv.innerText = "Erreur de connexion (URL?).";
+            statusDiv.innerText = "Erreur de connexion.";
         }
     }
 
     function parler(texte) {
-        // Annulation de sécurité
         synthese.cancel();
 
         phraseEnCours = new SpeechSynthesisUtterance(texte);
-        phraseEnCours.lang = 'fr-FR'; 
+        
+        // --- LOGIQUE POUR FORCER LA VOIX FRANÇAISE ---
+        // On s'assure d'avoir la liste des voix
+        if (voixDisponibles.length === 0) chargerVoix();
+
+        // On cherche une voix qui contient "fr" ou "FR" dans sa langue
+        // On préfère "Google français" sur Android si dispo
+        const voixFR = voixDisponibles.find(voice => voice.lang.includes('fr') || voice.lang.includes('FR'));
+        
+        if (voixFR) {
+            phraseEnCours.voice = voixFR; // On force cette voix spécifique
+            phraseEnCours.lang = voixFR.lang;
+        } else {
+            // Sécurité si aucune voix n'est trouvée
+            phraseEnCours.lang = 'fr-FR'; 
+        }
+        // ---------------------------------------------
+
         phraseEnCours.rate = 1; 
         phraseEnCours.pitch = 1;
         
@@ -129,15 +147,10 @@
             document.getElementById('status').innerText = "Lecture terminée.";
         };
 
-        phraseEnCours.onerror = function(e) {
-            console.error("Erreur audio:", e);
-        };
-
         synthese.speak(phraseEnCours);
     }
 
     function pauseLecture() {
-        // Vérifie si ça parle pour mettre en pause
         if (synthese.speaking && !synthese.paused) {
             synthese.pause();
             document.getElementById('status').innerText = "Lecture en pause...";
@@ -145,7 +158,6 @@
     }
 
     function reprendreLecture() {
-        // Vérifie si c'est en pause pour reprendre
         if (synthese.paused) {
             synthese.resume();
             document.getElementById('status').innerText = "Lecture en cours...";
@@ -153,7 +165,6 @@
     }
 
     function stopLecture() {
-        // Arrête tout brutalement
         synthese.cancel();
         document.getElementById('status').innerText = "Lecture arrêtée.";
     }
